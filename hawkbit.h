@@ -18,7 +18,7 @@
 #include <string>
 #include <map>
 #include <list>
-#include <ArduinoJson.h>
+#include <json.hpp>
 #include "esp_log.h"
 #include "esp_tls.h"
 
@@ -82,7 +82,7 @@ class Artifact {
         const std::map<std::string,std::string>& links() const { return _links; }
 
         void dump(const std::string& prefix = "") const {
-             ESP_LOGI(prefix.c_str(),"%s %u\n", this->_filename.c_str(), this->_size);
+             ESP_LOGI(prefix.c_str(),"%s %lu\n", this->_filename.c_str(), this->_size);
              ESP_LOGI(prefix.c_str(),"Hashes");
              for (std::pair<std::string,std::string> element : this->_hashes) {
                  ESP_LOGI(prefix.c_str(), "    %s = %s\n", element.first.c_str(), element.second.c_str());
@@ -307,7 +307,7 @@ class HawkbitClient {
         typedef enum { MERGE, REPLACE, REMOVE } MergeMode;
 
         HawkbitClient(
-            JsonDocument& json,
+            json& doc,
             const std::string& baseUrl,
             const std::string& tenantName,
             const std::string& controllerId,
@@ -382,7 +382,7 @@ class HawkbitClient {
         uint32_t getPollingTime() { return this->pollingTime; }
 
     private:
-        JsonDocument& _doc;
+        json& _doc;
     
         char resultPayload[MAX_HTTP_OUTPUT_BUFFER] = {};
         esp_http_client_config_t _http_config = {};
