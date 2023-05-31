@@ -104,10 +104,10 @@ void HawkbitClient::init(
     const std::string &securityToken,
     char *server_cert_pem_start)
 {
-    _baseUrl(baseUrl),
-    _tenantName(tenantName),
-    _controllerId(controllerId),
-    _authToken("TargetToken " + securityToken);
+    _baseUrl = baseUrl;
+    _tenantName = tenantName;
+    _controllerId = controllerId;
+    _authToken = "TargetToken " + securityToken;
     _doc = json::parse(doc);
     _http_config.event_handler = _http_event_handler;
     _http_config.url = "http://localhost";
@@ -161,7 +161,7 @@ UpdateResult HawkbitClient::updateRegistration(const Registration& registration,
     esp_http_client_set_post_field(_http, buffer.data(), len);
     esp_err_t err = esp_http_client_perform(_http);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "updateRegistration HTTP Status = %d, content_length = %d",
+        ESP_LOGI(TAG, "updateRegistration HTTP Status = %d, content_length = %lld",
                 esp_http_client_get_status_code(_http),
                 esp_http_client_get_content_length(_http));
 
@@ -185,7 +185,7 @@ State HawkbitClient::readState()
 
     esp_err_t err = esp_http_client_perform(_http);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "readState HTTP Status = %d, content_length = %d",
+        ESP_LOGI(TAG, "readState HTTP Status = %d, content_length = %lld",
                 esp_http_client_get_status_code(_http),
                 esp_http_client_get_content_length(_http));
 
@@ -214,22 +214,22 @@ State HawkbitClient::readState()
                 std::istringstream ss(tmp);
                 ss >> std::get_time(&tm, "%H:%M:%S");
                 this->pollingTime = tm.tm_hour*60*60 + tm.tm_min*60 + tm.tm_sec;
-                ESP_LOGI(TAG, "Received polling time: %s --> sleep %d seconds", tmp.c_str(), this->pollingTime);
+                ESP_LOGI(TAG, "Received polling time: %s --> sleep %ld seconds", tmp.c_str(), this->pollingTime);
             }
 
-            std::string href = _doc["_links"]["deploymentBase"]["href"] | "";
+            std::string href = _doc["_links"]["deploymentBase"]["href"];
             if (!href.empty()) {
                 ESP_LOGI(TAG,"Fetching deployment: %s", href.c_str());
                 return State(this->readDeployment(href));
             }
 
-            href = _doc["_links"]["configData"]["href"] | "";
+            href = _doc["_links"]["configData"]["href"];
             if (!href.empty()) {
                 ESP_LOGI(TAG,"Need to register %s", href.c_str());
                 return State(Registration(href));
             }
 
-            href = _doc["_links"]["cancelAction"]["href"] | "";
+            href = _doc["_links"]["cancelAction"]["href"];
             if (!href.empty()) {
                 ESP_LOGI(TAG,"Fetching cancel action: %s", href.c_str());
                 return State(this->readCancel(href));
@@ -280,10 +280,11 @@ std::list<Artifact> artifacts(const JsonArray& artifacts)
     return result;
 }
 
-std::list<Chunk> chunks(const JsonArray& chunks)
+std::list<Chunk> chunks(const json& chunks)
 {
     std::list<Chunk> result;
 
+    for(json::iterator it = chunks.begin(); it != chunks.end(); it++)
     for(JsonObject o : chunks)
     {
         Chunk chunk(
@@ -306,7 +307,7 @@ Deployment HawkbitClient::readDeployment(const std::string& href)
 
     esp_err_t err = esp_http_client_perform(_http);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "readDeployment HTTP Status = %d, content_length = %d",
+        ESP_LOGI(TAG, "readDeployment HTTP Status = %d, content_length = %lld",
             esp_http_client_get_status_code(_http),
             esp_http_client_get_content_length(_http));
             int code = esp_http_client_get_status_code(_http);
@@ -342,7 +343,7 @@ Stop HawkbitClient::readCancel(const std::string& href)
 
     esp_err_t err = esp_http_client_perform(_http);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "readCancel HTTP Status = %d, content_length = %d",
+        ESP_LOGI(TAG, "readCancel HTTP Status = %d, content_length = %lld",
                 esp_http_client_get_status_code(_http),
                 esp_http_client_get_content_length(_http));
         int code = esp_http_client_get_status_code(_http);
@@ -365,7 +366,7 @@ Stop HawkbitClient::readCancel(const std::string& href)
 
     esp_http_client_cleanup(_http);
 
-    std::string stopId = _doc["cancelAction"]["stopId"] | "";
+    std::string stopId = _doc["cancelAction"]["stopId"];
     
     return Stop(stopId);
 }
@@ -403,7 +404,7 @@ UpdateResult HawkbitClient::sendFeedback(IdProvider id, const std::string& execu
     // FIXME: handle result
     esp_err_t err = esp_http_client_perform(_http);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "sendFeedback HTTP Status = %d, content_length = %d",
+        ESP_LOGI(TAG, "sendFeedback HTTP Status = %d, content_length = %lld",
                 esp_http_client_get_status_code(_http),
                 esp_http_client_get_content_length(_http));
         ESP_LOGD(TAG,"Result - payload: %s", resultPayload);
