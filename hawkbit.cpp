@@ -13,6 +13,8 @@
 #include "hawkbit.h"
 #include <iomanip>
 #include <sstream>
+#include <json.hpp>
+using json = nlohmann::json;
 
 static const char* TAG = "hawkbit";
 
@@ -89,19 +91,24 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
-HawkbitClient::HawkbitClient(
-    json& doc,
+HawkbitClient::HawkbitClient()
+{
+
+}
+
+void HawkbitClient::init(
+    char* doc,
     const std::string& baseUrl,
     const std::string& tenantName,
     const std::string& controllerId,
     const std::string &securityToken,
-    char *server_cert_pem_start) :
-    _doc(doc),
+    char *server_cert_pem_start)
+{
     _baseUrl(baseUrl),
     _tenantName(tenantName),
     _controllerId(controllerId),
-    _authToken("TargetToken " + securityToken)
-{
+    _authToken("TargetToken " + securityToken);
+    _doc = json::parse(doc);
     _http_config.event_handler = _http_event_handler;
     _http_config.url = "http://localhost";
     _http_config.user_data = resultPayload;        // Pass address of local buffer to get response
@@ -122,7 +129,7 @@ esp_http_client_handle_t HawkbitClient::initHttpHandle(esp_http_client_method_t 
 
 UpdateResult HawkbitClient::updateRegistration(const Registration& registration, const std::map<std::string,std::string>& data, MergeMode mergeMode, std::initializer_list<std::string> details)
 {
-    _doc.clear();
+    _doc = json::object();
 
     switch(mergeMode) {
         case MERGE:
@@ -136,22 +143,18 @@ UpdateResult HawkbitClient::updateRegistration(const Registration& registration,
             break;
     }
 
-    _doc.createNestedObject("data");
     for (const std::pair<std::string,std::string> entry : data) {
         _doc["data"][std::string(entry.first)] = entry.second;
     }
 
-    JsonArray d = _doc["status"].createNestedArray("details");
-    for (auto detail : details) {
-        d.add(detail);
-    }
+    _doc["status"]["details"] = details;
 
     _doc["status"]["execution"] = "closed";
     _doc["status"]["result"]["finished"] = "success";
     esp_http_client_handle_t _http = initHttpHandle(HTTP_METHOD_PUT, registration.url());
 
-    std::string buffer;
-    size_t len = serializeJson(_doc, buffer);
+    std::string buffer = _doc.dump();
+    size_t len = buffer.length();
     (void)len; // ignore unused
 
     ESP_LOGI(TAG,"JSON - len: %d", len);
@@ -178,7 +181,7 @@ State HawkbitClient::readState()
 {
     esp_http_client_handle_t _http = initHttpHandle(HTTP_METHOD_GET, (this->_baseUrl + "/" + this->_tenantName + "/controller/v1/" + this->_controllerId));
 
-    _doc.clear();
+    _doc = json::object();
 
     esp_err_t err = esp_http_client_perform(_http);
     if (err == ESP_OK) {
@@ -191,12 +194,13 @@ State HawkbitClient::readState()
 
             ESP_LOGD(TAG,"Result - payload: %s", this->resultPayload);
             if ( code == HttpStatus_Ok ) {
-                DeserializationError error = deserializeJson(_doc, resultPayload);
-                if (error) {
-                    ESP_LOGE(TAG, "readState: DeserializationError %s", error.c_str());
-                    esp_http_client_cleanup(_http);
-                    return State();
-                }
+                _doc = json::parse(resultPayload);
+                // DeserializationError error = deserializeJson(_doc, resultPayload);
+                // if (error) {
+                //     ESP_LOGE(TAG, "readState: DeserializationError %s", error.c_str());
+                //     esp_http_client_cleanup(_http);
+                //     return State();
+                // }
             } else {
                     ESP_LOGE(TAG, "readState: not succesful with %d", esp_http_client_get_status_code(_http));
                     esp_http_client_cleanup(_http);
@@ -298,7 +302,8 @@ Deployment HawkbitClient::readDeployment(const std::string& href)
 {
     esp_http_client_handle_t _http = initHttpHandle(HTTP_METHOD_GET, href);
     
-    _doc.clear();
+    _doc = json::object();
+
     esp_err_t err = esp_http_client_perform(_http);
     if (err == ESP_OK) {
         ESP_LOGI(TAG, "readDeployment HTTP Status = %d, content_length = %d",
@@ -308,12 +313,13 @@ Deployment HawkbitClient::readDeployment(const std::string& href)
             ESP_LOGD(TAG,"Result - code: %d", code);
             ESP_LOGD(TAG,"Result - payload: %s", this->resultPayload);
             if ( code == HttpStatus_Ok ) {
-                DeserializationError error = deserializeJson(_doc, resultPayload);
-                if (error) {
-                    //esp_http_client_cleanup(_http);
-                    // FIXME: need a way to handle errors
-                    //throw 1;
-                }
+                _doc = json::parse(resultPayload);
+                // DeserializationError error = deserializeJson(_doc, resultPayload);
+                // if (error) {
+                //     //esp_http_client_cleanup(_http);
+                //     // FIXME: need a way to handle errors
+                //     //throw 1;
+                // }
             }
     } else {
         ESP_LOGE(TAG, "readDeployment HTTP request failed: %s", esp_err_to_name(err));
@@ -332,7 +338,7 @@ Stop HawkbitClient::readCancel(const std::string& href)
 {
     esp_http_client_handle_t _http = initHttpHandle(HTTP_METHOD_GET, href);
 
-    _doc.clear();
+    _doc = json::object();
 
     esp_err_t err = esp_http_client_perform(_http);
     if (err == ESP_OK) {
@@ -345,12 +351,13 @@ Stop HawkbitClient::readCancel(const std::string& href)
         ESP_LOGD(TAG,"Result - payload: %s", this->resultPayload);
 
         if ( code == HttpStatus_Ok ) {
-            DeserializationError error = deserializeJson(_doc, resultPayload);
-            if (error) {
-                //esp_http_client_cleanup(_http);
-                // FIXME: need a way to handle errors
-                //throw 1;
-            }
+            _doc = json::parse(resultPayload);
+            // DeserializationError error = deserializeJson(_doc, resultPayload);
+            // if (error) {
+            //     //esp_http_client_cleanup(_http);
+            //     // FIXME: need a way to handle errors
+            //     //throw 1;
+            // }
         }
     } else {
         ESP_LOGE(TAG, "readCancel HTTP request failed: %s", esp_err_to_name(err));
@@ -376,21 +383,18 @@ std::string HawkbitClient::feedbackUrl(const Stop& stop) const
 template<typename IdProvider>
 UpdateResult HawkbitClient::sendFeedback(IdProvider id, const std::string& execution, const std::string& finished, std::vector<std::string> details)
 {
-    _doc.clear();
+    _doc = json::object();
 
     _doc["id"] = id.id();
     
-    JsonArray d = _doc["status"].createNestedArray("details");
-    for (auto detail : details) {
-        d.add(detail);
-    }
+    _doc["status"]["details"] = details;
 
     _doc["status"]["execution"] = execution;
     _doc["status"]["result"]["finished"] = finished;
     esp_http_client_handle_t _http = initHttpHandle(HTTP_METHOD_POST, this->feedbackUrl(id));
 
-    std::string buffer;
-    size_t len = serializeJson(_doc, buffer);
+    std::string buffer = _doc.dump();
+    size_t len = buffer.length();
     (void)len; // ignore unused
 
     ESP_LOGD(TAG,"JSON - len: %d", len);
