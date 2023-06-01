@@ -243,33 +243,30 @@ State HawkbitClient::readState()
     return State();
 }
 
-std::map<std::string,std::string> toMap(const json& obj) {
+std::map<std::string,std::string> toMap(json& obj) {
     std::map<std::string,std::string> result;
 
     for(json::iterator p = obj.begin(); p != obj.end(); p++)
     {
-        if (p.value().is<const char*>()) {
-            result[std::string(p.key().c_str())] = std::string(p.value().as<const char*>());
-        }
+        result[std::string(p.key().c_str())] = std::string(p.value());
     }
     return result;
 }
 
-std::map<std::string,std::string> toLinks(const json& obj) {
+std::map<std::string,std::string> toLinks(json& obj) {
     std::map<std::string,std::string> result;
 
     for(json::iterator p = obj.begin(); p != obj.end(); p++)
     {
         const char* key = p.key().c_str();
         json j = p.value();
-        const char* value = j["href"];
-        result[std::string(key)] = std::string(value);
+        result[std::string(key)] = j["href"].get<std::string>();
     }
 
     return result;
 }
 
-std::list<Artifact> artifacts(const json& artifacts)
+std::list<Artifact> artifacts(json& artifacts)
 {
     std::list<Artifact> result;
 
@@ -288,7 +285,7 @@ std::list<Artifact> artifacts(const json& artifacts)
     return result;
 }
 
-std::list<Chunk> chunks(const json& chunks)
+std::list<Chunk> chunks(json& chunks)
 {
     std::list<Chunk> result;
 
@@ -296,9 +293,9 @@ std::list<Chunk> chunks(const json& chunks)
     {
         json o = *it;
         Chunk chunk(
-            o["part"],
-            o["version"],
-            o["name"],
+            o["part"].get<std::string>(),
+            o["version"].get<std::string>(),
+            o["name"].get<std::string>(),
             artifacts(o["artifacts"])
             );
         result.push_back(chunk);
