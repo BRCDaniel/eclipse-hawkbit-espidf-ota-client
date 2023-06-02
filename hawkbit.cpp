@@ -97,7 +97,6 @@ HawkbitClient::HawkbitClient()
 }
 
 void HawkbitClient::init(
-    char* doc,
     const std::string& baseUrl,
     const std::string& tenantName,
     const std::string& controllerId,
@@ -108,7 +107,7 @@ void HawkbitClient::init(
     _tenantName = tenantName;
     _controllerId = controllerId;
     _authToken = "TargetToken " + securityToken;
-    _doc = json::parse(doc);
+    _doc = json::object();
     _http_config.event_handler = _http_event_handler;
     _http_config.url = "http://localhost";
     _http_config.user_data = resultPayload;        // Pass address of local buffer to get response

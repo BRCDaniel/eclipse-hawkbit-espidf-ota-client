@@ -310,7 +310,6 @@ class HawkbitClient {
         HawkbitClient();
 
         void init(
-            char* doc,
             const std::string& baseUrl,
             const std::string& tenantName,
             const std::string& controllerId,
