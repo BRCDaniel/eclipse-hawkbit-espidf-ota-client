@@ -189,6 +189,12 @@ State HawkbitClient::readState()
             ESP_LOGD(TAG,"Result - payload: %s", this->resultPayload);
             if ( code == HttpStatus_Ok ) {
                 _doc = json::parse(resultPayload);
+                if (_doc == NULL)
+                {                    
+                    ESP_LOGE(TAG, "readState: DeserializationError");
+                    esp_http_client_cleanup(_http);
+                    return State();
+                }
             } else {
                     ESP_LOGE(TAG, "readState: not succesful with %d", esp_http_client_get_status_code(_http));
                     esp_http_client_cleanup(_http);
@@ -236,7 +242,8 @@ std::map<std::string,std::string> toMap(json& obj) {
 
     for(json::iterator p = obj.begin(); p != obj.end(); p++)
     {
-        result[std::string(p.key().c_str())] = std::string(p.value());
+        if (p.value().is_string())
+            result[std::string(p.key())] = std::string(p.value());
     }
     return result;
 }
@@ -246,9 +253,11 @@ std::map<std::string,std::string> toLinks(json& obj) {
 
     for(json::iterator p = obj.begin(); p != obj.end(); p++)
     {
-        const char* key = p.key().c_str();
-        json j = p.value();
-        result[std::string(key)] = j["href"].get<std::string>();
+        //In a test program for the json-lib this got parsed as an array, probably have to be changed to objects.
+        //in a similar way to the toMap function.
+        json arr = p.value();
+        if (arr.is_array() && arr[0].get<std::string>() == "href")
+            result[std::string(p.key())] = arr[1].get<std::string>();
     }
 
     return result;
