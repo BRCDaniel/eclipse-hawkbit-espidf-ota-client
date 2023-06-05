@@ -91,11 +91,6 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
-HawkbitClient::HawkbitClient()
-{
-
-}
-
 void HawkbitClient::init(
     const std::string& baseUrl,
     const std::string& tenantName,
@@ -194,12 +189,6 @@ State HawkbitClient::readState()
             ESP_LOGD(TAG,"Result - payload: %s", this->resultPayload);
             if ( code == HttpStatus_Ok ) {
                 _doc = json::parse(resultPayload);
-                // DeserializationError error = deserializeJson(_doc, resultPayload);
-                // if (error) {
-                //     ESP_LOGE(TAG, "readState: DeserializationError %s", error.c_str());
-                //     esp_http_client_cleanup(_http);
-                //     return State();
-                // }
             } else {
                     ESP_LOGE(TAG, "readState: not succesful with %d", esp_http_client_get_status_code(_http));
                     esp_http_client_cleanup(_http);
@@ -207,7 +196,7 @@ State HawkbitClient::readState()
             }
             esp_http_client_cleanup(_http);
 
-            std::string tmp = _doc["config"]["polling"]["sleep"];
+            std::string tmp = _doc["config"]["polling"]["sleep"].get<std::string>();
             if (!tmp.empty()) {
                 struct std::tm tm;
                 std::istringstream ss(tmp);
@@ -216,19 +205,19 @@ State HawkbitClient::readState()
                 ESP_LOGI(TAG, "Received polling time: %s --> sleep %ld seconds", tmp.c_str(), this->pollingTime);
             }
 
-            std::string href = _doc["_links"]["deploymentBase"]["href"];
+            std::string href = _doc["_links"]["deploymentBase"]["href"].get<std::string>();
             if (!href.empty()) {
                 ESP_LOGI(TAG,"Fetching deployment: %s", href.c_str());
                 return State(this->readDeployment(href));
             }
 
-            href = _doc["_links"]["configData"]["href"];
+            href = _doc["_links"]["configData"]["href"].get<std::string>();
             if (!href.empty()) {
                 ESP_LOGI(TAG,"Need to register %s", href.c_str());
                 return State(Registration(href));
             }
 
-            href = _doc["_links"]["cancelAction"]["href"];
+            href = _doc["_links"]["cancelAction"]["href"].get<std::string>();
             if (!href.empty()) {
                 ESP_LOGI(TAG,"Fetching cancel action: %s", href.c_str());
                 return State(this->readCancel(href));
@@ -273,8 +262,8 @@ std::list<Artifact> artifacts(json& artifacts)
     {
         json o = *it;
         Artifact artifact (
-            o["filename"],
-            o["size"],
+            o["filename"].get<std::string>(),
+            o["size"].get<uint32_t>() | 0,
             toMap(o["hashes"]),
             toLinks(o["_links"])
         );
@@ -319,12 +308,6 @@ Deployment HawkbitClient::readDeployment(const std::string& href)
             ESP_LOGD(TAG,"Result - payload: %s", this->resultPayload);
             if ( code == HttpStatus_Ok ) {
                 _doc = json::parse(resultPayload);
-                // DeserializationError error = deserializeJson(_doc, resultPayload);
-                // if (error) {
-                //     //esp_http_client_cleanup(_http);
-                //     // FIXME: need a way to handle errors
-                //     //throw 1;
-                // }
             }
     } else {
         ESP_LOGE(TAG, "readDeployment HTTP request failed: %s", esp_err_to_name(err));
@@ -332,9 +315,9 @@ Deployment HawkbitClient::readDeployment(const std::string& href)
 
     esp_http_client_cleanup(_http);
 
-    std::string id = _doc["id"];
-    std::string download = _doc["deployment"]["download"];
-    std::string update = _doc["deployment"]["update"];
+    std::string id = _doc["id"].get<std::string>();
+    std::string download = _doc["deployment"]["download"].get<std::string>();
+    std::string update = _doc["deployment"]["update"].get<std::string>();
 
     return Deployment(id, download, update, chunks(_doc["deployment"]["chunks"]));
 }
@@ -357,12 +340,6 @@ Stop HawkbitClient::readCancel(const std::string& href)
 
         if ( code == HttpStatus_Ok ) {
             _doc = json::parse(resultPayload);
-            // DeserializationError error = deserializeJson(_doc, resultPayload);
-            // if (error) {
-            //     //esp_http_client_cleanup(_http);
-            //     // FIXME: need a way to handle errors
-            //     //throw 1;
-            // }
         }
     } else {
         ESP_LOGE(TAG, "readCancel HTTP request failed: %s", esp_err_to_name(err));
@@ -370,7 +347,7 @@ Stop HawkbitClient::readCancel(const std::string& href)
 
     esp_http_client_cleanup(_http);
 
-    std::string stopId = _doc["cancelAction"]["stopId"];
+    std::string stopId = _doc["cancelAction"]["stopId"].get<std::string>();
     
     return Stop(stopId);
 }

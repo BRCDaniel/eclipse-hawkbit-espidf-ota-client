@@ -307,7 +307,7 @@ class HawkbitClient {
 
         typedef enum { MERGE, REPLACE, REMOVE } MergeMode;
 
-        HawkbitClient();
+        HawkbitClient() {};
 
         void init(
             const std::string& baseUrl,
