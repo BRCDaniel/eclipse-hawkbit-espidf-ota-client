@@ -188,8 +188,8 @@ State HawkbitClient::readState()
 
             ESP_LOGD(TAG,"Result - payload: %s", this->resultPayload);
             if ( code == HttpStatus_Ok ) {
-                _doc = json::parse(resultPayload);
-                if (_doc == NULL)
+                _doc = json::parse(resultPayload, NULL, false, true);
+                if (_doc.is_null())
                 {                    
                     ESP_LOGE(TAG, "readState: DeserializationError");
                     esp_http_client_cleanup(_http);
@@ -316,7 +316,7 @@ Deployment HawkbitClient::readDeployment(const std::string& href)
             ESP_LOGD(TAG,"Result - code: %d", code);
             ESP_LOGD(TAG,"Result - payload: %s", this->resultPayload);
             if ( code == HttpStatus_Ok ) {
-                _doc = json::parse(resultPayload);
+                _doc = json::parse(resultPayload, NULL, false, true);
             }
     } else {
         ESP_LOGE(TAG, "readDeployment HTTP request failed: %s", esp_err_to_name(err));
@@ -348,7 +348,7 @@ Stop HawkbitClient::readCancel(const std::string& href)
         ESP_LOGD(TAG,"Result - payload: %s", this->resultPayload);
 
         if ( code == HttpStatus_Ok ) {
-            _doc = json::parse(resultPayload);
+            _doc = json::parse(resultPayload, NULL, false, true);
         }
     } else {
         ESP_LOGE(TAG, "readCancel HTTP request failed: %s", esp_err_to_name(err));
