@@ -252,7 +252,7 @@ State HawkbitClient::readState()
 std::map<std::string,std::string> toMap(json& obj) {
     std::map<std::string,std::string> result;
 
-    for(json::iterator p = obj.begin(); p != obj.end(); p++)
+    for(auto& p:obj.items())
     {
         if (p.value().is_string())
             result[std::string(p.key())] = std::string(p.value());
@@ -263,7 +263,7 @@ std::map<std::string,std::string> toMap(json& obj) {
 std::map<std::string,std::string> toLinks(json& obj) {
     std::map<std::string,std::string> result;
 
-    for(json::iterator p = obj.begin(); p != obj.end(); p++)
+    for(auto& p:obj.items())
     {
         //In a test program for the json-lib this got parsed as an array, probably have to be changed to objects.
         //in a similar way to the toMap function.
@@ -279,9 +279,8 @@ std::list<Artifact> artifacts(json& artifacts)
 {
     std::list<Artifact> result;
 
-    for(json::iterator it = artifacts.begin(); it != artifacts.end(); it++)
+    for(auto& o:artifacts)
     {
-        json o = *it;
         if (o.count("_links") && o.count("size") && o.count("hashes") && o.count("_links"))
         {
             Artifact artifact (
@@ -301,9 +300,8 @@ std::list<Chunk> chunks(json& chunks)
 {
     std::list<Chunk> result;
 
-    for(json::iterator it = chunks.begin(); it != chunks.end(); it++)
+    for(auto& o:chunks)
     {
-        json o = *it;
         if (o.count("part") && o.count("version") && o.count("name") && o.count("artifacts"))
         {
             Chunk chunk(
