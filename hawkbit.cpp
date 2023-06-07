@@ -202,31 +202,43 @@ State HawkbitClient::readState()
             }
             esp_http_client_cleanup(_http);
 
-            std::string tmp = _doc["config"]["polling"]["sleep"].get<std::string>();
-            if (!tmp.empty()) {
-                struct std::tm tm;
-                std::istringstream ss(tmp);
-                ss >> std::get_time(&tm, "%H:%M:%S");
-                this->pollingTime = tm.tm_hour*60*60 + tm.tm_min*60 + tm.tm_sec;
-                ESP_LOGI(TAG, "Received polling time: %s --> sleep %ld seconds", tmp.c_str(), this->pollingTime);
+            if (_doc.count("config") && _doc["config"].count("polling") && _doc["config"]["polling"].count("sleep"))
+            {
+                std::string tmp = _doc["config"]["polling"]["sleep"].get<std::string>();
+                if (!tmp.empty()) {
+                    struct std::tm tm;
+                    std::istringstream ss(tmp);
+                    ss >> std::get_time(&tm, "%H:%M:%S");
+                    this->pollingTime = tm.tm_hour*60*60 + tm.tm_min*60 + tm.tm_sec;
+                    ESP_LOGI(TAG, "Received polling time: %s --> sleep %ld seconds", tmp.c_str(), this->pollingTime);
+                }
             }
 
-            std::string href = _doc["_links"]["deploymentBase"]["href"].get<std::string>();
-            if (!href.empty()) {
-                ESP_LOGI(TAG,"Fetching deployment: %s", href.c_str());
-                return State(this->readDeployment(href));
+            if (_doc.count("_links") && _doc["_links"].count("deploymentBase") && _doc["_links"]["deploymentBase"].count("href"))
+            {
+                std::string href = _doc["_links"]["deploymentBase"]["href"].get<std::string>();
+                if (!href.empty()) {
+                    ESP_LOGI(TAG,"Fetching deployment: %s", href.c_str());
+                    return State(this->readDeployment(href));
+                }
             }
 
-            href = _doc["_links"]["configData"]["href"].get<std::string>();
-            if (!href.empty()) {
-                ESP_LOGI(TAG,"Need to register %s", href.c_str());
-                return State(Registration(href));
+            if (_doc.count("_links") && _doc["_links"].count("configData") && _doc["_links"]["configData"].count("href"))
+            {
+                std::string href = _doc["_links"]["configData"]["href"].get<std::string>();
+                if (!href.empty()) {
+                    ESP_LOGI(TAG,"Need to register %s", href.c_str());
+                    return State(Registration(href));
+                }
             }
 
-            href = _doc["_links"]["cancelAction"]["href"].get<std::string>();
-            if (!href.empty()) {
-                ESP_LOGI(TAG,"Fetching cancel action: %s", href.c_str());
-                return State(this->readCancel(href));
+            if (_doc.count("_links") && _doc["_links"].count("cancelAction") && _doc["_links"]["cancelAction"].count("href"))
+            {
+                std::string href = _doc["_links"]["cancelAction"]["href"].get<std::string>();
+                if (!href.empty()) {
+                    ESP_LOGI(TAG,"Fetching cancel action: %s", href.c_str());
+                    return State(this->readCancel(href));
+                }
             }
     } else {
         esp_http_client_cleanup(_http);
@@ -270,13 +282,16 @@ std::list<Artifact> artifacts(json& artifacts)
     for(json::iterator it = artifacts.begin(); it != artifacts.end(); it++)
     {
         json o = *it;
-        Artifact artifact (
-            o["filename"].get<std::string>(),
-            o["size"].get<uint32_t>() | 0,
-            toMap(o["hashes"]),
-            toLinks(o["_links"])
-        );
-        result.push_back(artifact);
+        if (o.count("_links") && o.count("size") && o.count("hashes") && o.count("_links"))
+        {
+            Artifact artifact (
+                o["filename"].get<std::string>(),
+                o["size"].get<uint32_t>() | 0,
+                toMap(o["hashes"]),
+                toLinks(o["_links"])
+            );
+            result.push_back(artifact);
+        }
     }
 
     return result;
@@ -289,13 +304,16 @@ std::list<Chunk> chunks(json& chunks)
     for(json::iterator it = chunks.begin(); it != chunks.end(); it++)
     {
         json o = *it;
-        Chunk chunk(
-            o["part"].get<std::string>(),
-            o["version"].get<std::string>(),
-            o["name"].get<std::string>(),
-            artifacts(o["artifacts"])
-            );
-        result.push_back(chunk);
+        if (o.count("part") && o.count("version") && o.count("name") && o.count("artifacts"))
+        {
+            Chunk chunk(
+                o["part"].get<std::string>(),
+                o["version"].get<std::string>(),
+                o["name"].get<std::string>(),
+                artifacts(o["artifacts"])
+                );
+            result.push_back(chunk);
+        }
     }
 
     return result;
@@ -323,12 +341,20 @@ Deployment HawkbitClient::readDeployment(const std::string& href)
     }
 
     esp_http_client_cleanup(_http);
+    std::string id = "";
+    std::string download = "";
+    std::string update = "";
+    json j_chunks = json::object(); 
 
-    std::string id = _doc["id"].get<std::string>();
-    std::string download = _doc["deployment"]["download"].get<std::string>();
-    std::string update = _doc["deployment"]["update"].get<std::string>();
-
-    return Deployment(id, download, update, chunks(_doc["deployment"]["chunks"]));
+    if (_doc.count("id") && _doc.count("deployment") && 
+        _doc["deployment"].count("download") && _doc["deployment"].count("update") && _doc["deployment"].count("chunks"))
+    {
+        std::string id = _doc["id"].get<std::string>();
+        std::string download = _doc["deployment"]["download"].get<std::string>();
+        std::string update = _doc["deployment"]["update"].get<std::string>();
+        j_chunks = _doc["deployment"]["chunks"];
+    }
+    return Deployment(id, download, update, chunks(j_chunks));
 }
 
 Stop HawkbitClient::readCancel(const std::string& href)
@@ -356,7 +382,9 @@ Stop HawkbitClient::readCancel(const std::string& href)
 
     esp_http_client_cleanup(_http);
 
-    std::string stopId = _doc["cancelAction"]["stopId"].get<std::string>();
+    std::string stopId = "";
+    if (_doc.count("cancelAction") && _doc["cancelAction"].count("stopId"))
+        stopId = _doc["cancelAction"]["stopId"].get<std::string>();
     
     return Stop(stopId);
 }
