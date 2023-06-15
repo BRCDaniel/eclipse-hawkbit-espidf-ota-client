@@ -349,11 +349,12 @@ Deployment HawkbitClient::readDeployment(const std::string& href)
     if (_doc.count("id") && _doc.count("deployment") && 
         _doc["deployment"].count("download") && _doc["deployment"].count("update") && _doc["deployment"].count("chunks"))
     {
-        std::string id = _doc["id"].get<std::string>();
-        std::string download = _doc["deployment"]["download"].get<std::string>();
-        std::string update = _doc["deployment"]["update"].get<std::string>();
+        id = _doc["id"].get<std::string>();
+        download = _doc["deployment"]["download"].get<std::string>();
+        update = _doc["deployment"]["update"].get<std::string>();
         j_chunks = _doc["deployment"]["chunks"];
     }
+
     return Deployment(id, download, update, chunks(j_chunks));
 }
 
