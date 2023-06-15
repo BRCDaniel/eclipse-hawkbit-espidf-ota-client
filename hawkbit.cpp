@@ -268,8 +268,10 @@ std::map<std::string,std::string> toLinks(json& obj) {
         //In a test program for the json-lib this got parsed as an array, probably have to be changed to objects.
         //in a similar way to the toMap function.
         json arr = p.value();
-        if (arr.is_array() && arr[0].get<std::string>() == "href")
-            result[std::string(p.key())] = arr[1].get<std::string>();
+
+        if (arr.is_object() && !arr["href"].is_null()) {
+            result[std::string(p.key())] = arr["href"].get<std::string>().c_str();
+        }
     }
 
     return result;
