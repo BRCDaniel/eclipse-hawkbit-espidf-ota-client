@@ -83,7 +83,7 @@ class Artifact {
         const std::map<std::string,std::string>& links() const { return _links; }
 
         void dump(const std::string& prefix = "") const {
-             ESP_LOGI(prefix.c_str(),"%s %lu\n", this->_filename.c_str(), this->_size);
+             ESP_LOGI(prefix.c_str(),"%s %u\n", this->_filename.c_str(), this->_size);
              ESP_LOGI(prefix.c_str(),"Hashes");
              for (std::pair<std::string,std::string> element : this->_hashes) {
                  ESP_LOGI(prefix.c_str(), "    %s = %s\n", element.first.c_str(), element.second.c_str());
