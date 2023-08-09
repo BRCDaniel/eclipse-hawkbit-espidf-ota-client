@@ -265,8 +265,6 @@ std::map<std::string,std::string> toLinks(json& obj) {
 
     for(auto& p:obj.items())
     {
-        //In a test program for the json-lib this got parsed as an array, probably have to be changed to objects.
-        //in a similar way to the toMap function.
         json arr = p.value();
 
         if (arr.is_object() && !arr["href"].is_null()) {
@@ -283,7 +281,7 @@ std::list<Artifact> artifacts(json& artifacts)
 
     for(auto& o:artifacts)
     {
-        if (o.count("_links") && o.count("size") && o.count("hashes") && o.count("_links"))
+        if (o.count("_links") && o.count("size") && o.count("hashes"))
         {
             Artifact artifact (
                 o["filename"].get<std::string>(),
