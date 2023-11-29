@@ -19,7 +19,6 @@
 #include <map>
 #include <list>
 #include <json.hpp>
-using json = nlohmann::json;
 #include "esp_log.h"
 #include "esp_tls.h"
 
@@ -384,7 +383,7 @@ class HawkbitClient {
         uint32_t getPollingTime() { return this->pollingTime; }
 
     private:
-        json _doc;
+        nlohmann::json _doc;
     
         char resultPayload[MAX_HTTP_OUTPUT_BUFFER] = {};
         esp_http_client_config_t _http_config = {};
