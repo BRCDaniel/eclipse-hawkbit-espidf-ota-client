@@ -16,6 +16,11 @@
  * Copyright (c) 2023 Martin Schuessler
  */
 
+/*
+ * Further modified by Daniel Barth
+ * Copyright (c) 2025 Daniel Barth
+ */
+
 #pragma once
 
 #include <vector>
