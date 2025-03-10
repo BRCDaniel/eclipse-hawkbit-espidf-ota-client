@@ -1,3 +1,4 @@
+/* Original Copyright Notice */
 /*******************************************************************************
  * Copyright (c) 2020 Red Hat Inc
  *
@@ -10,6 +11,16 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
+/* 
+ * Modified by Martin Schuessler
+ * Copyright (c) 2023 Martin Schuessler
+ */
+
+/*
+ * Further modified by Daniel Barth
+ * Copyright (c) 2025 Daniel Barth
+ */
+
 #include "hawkbit.h"
 #include <iomanip>
 #include <sstream>
@@ -210,7 +221,7 @@ State HawkbitClient::readState()
                     std::istringstream ss(tmp);
                     ss >> std::get_time(&tm, "%H:%M:%S");
                     this->pollingTime = tm.tm_hour*60*60 + tm.tm_min*60 + tm.tm_sec;
-                    ESP_LOGI(TAG, "Received polling time: %s --> sleep %ld seconds", tmp.c_str(), this->pollingTime);
+                    ESP_LOGI(TAG, "Received polling time: %s --> sleep %" PRIu32 " seconds", tmp.c_str(), this->pollingTime);
                 }
             }
 
@@ -265,11 +276,11 @@ std::map<std::string,std::string> toLinks(json& obj) {
 
     for(auto& p:obj.items())
     {
-        //In a test program for the json-lib this got parsed as an array, probably have to be changed to objects.
-        //in a similar way to the toMap function.
         json arr = p.value();
-        if (arr.is_array() && arr[0].get<std::string>() == "href")
-            result[std::string(p.key())] = arr[1].get<std::string>();
+
+        if (arr.is_object() && !arr["href"].is_null()) {
+            result[std::string(p.key())] = arr["href"].get<std::string>().c_str();
+        }
     }
 
     return result;
@@ -281,7 +292,7 @@ std::list<Artifact> artifacts(json& artifacts)
 
     for(auto& o:artifacts)
     {
-        if (o.count("_links") && o.count("size") && o.count("hashes") && o.count("_links"))
+        if (o.count("_links") && o.count("size") && o.count("hashes"))
         {
             Artifact artifact (
                 o["filename"].get<std::string>(),
@@ -347,11 +358,12 @@ Deployment HawkbitClient::readDeployment(const std::string& href)
     if (_doc.count("id") && _doc.count("deployment") && 
         _doc["deployment"].count("download") && _doc["deployment"].count("update") && _doc["deployment"].count("chunks"))
     {
-        std::string id = _doc["id"].get<std::string>();
-        std::string download = _doc["deployment"]["download"].get<std::string>();
-        std::string update = _doc["deployment"]["update"].get<std::string>();
+        id = _doc["id"].get<std::string>();
+        download = _doc["deployment"]["download"].get<std::string>();
+        update = _doc["deployment"]["update"].get<std::string>();
         j_chunks = _doc["deployment"]["chunks"];
     }
+
     return Deployment(id, download, update, chunks(j_chunks));
 }
 
