@@ -1,3 +1,4 @@
+/* Original Copyright Notice */
 /*******************************************************************************
  * Copyright (c) 2020 Red Hat Inc
  *
@@ -10,6 +11,15 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
+/* 
+ * Modified by Martin Schuessler
+ * Copyright (c) 2023 Martin Schuessler
+ */
+
+/*
+ * Further modified by Daniel Barth
+ * Copyright (c) 2025 Daniel Barth
+ */
 
 #pragma once
 
