@@ -28,6 +28,7 @@
 using json = nlohmann::json;
 
 static const char* TAG = "hawkbit";
+static const char string_terminator = '\0';
 
 esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
@@ -58,8 +59,6 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
             if (!esp_http_client_is_chunked_response(evt->client)) {
                 // If user_data buffer is configured, copy the response into the buffer
                 if (evt->user_data) {
-                    memcpy((uint8_t*)evt->user_data + output_len, evt->data, evt->data_len);
-                } else {
                     if (output_buffer == NULL) {
                         output_buffer = (char *) malloc(esp_http_client_get_content_length(evt->client));
                         output_len = 0;
@@ -71,6 +70,8 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
                     memcpy(output_buffer + output_len, evt->data, evt->data_len);
                 }
                 output_len += evt->data_len;
+                memcpy((uint8_t*)evt->user_data, output_buffer, output_len);
+                memcpy((uint8_t*)evt->user_data+output_len, &string_terminator, 1);
             }
 
             break;
@@ -85,7 +86,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
             output_len = 0;
             break;
         case HTTP_EVENT_DISCONNECTED:
-            ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
+            ESP_LOGD(TAG, "HTTP_EVENT_DISCONNECTED");
             int mbedtls_err = 0;
             esp_err_t err = esp_tls_get_and_clear_last_error((esp_tls_error_handle_t)evt->data, &mbedtls_err, NULL);
             if (err != 0) {
@@ -94,8 +95,8 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
                     output_buffer = NULL;
                 }
                 output_len = 0;
-                ESP_LOGI(TAG, "Last esp error code: 0x%x", err);
-                ESP_LOGI(TAG, "Last mbedtls failure: 0x%x", mbedtls_err);
+                ESP_LOGD(TAG, "Last esp error code: 0x%x", err);
+                ESP_LOGD(TAG, "Last mbedtls failure: 0x%x", mbedtls_err);
             }
             break;
     }
