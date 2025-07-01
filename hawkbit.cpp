@@ -68,9 +68,10 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
                     }
                     memcpy(output_buffer + output_len, evt->data, evt->data_len);
                 }
+                char string_terminator = '\0';
                 output_len += evt->data_len;
                 memcpy((uint8_t*)evt->user_data, output_buffer, output_len);
-                memcpy((uint8_t*)evt->user_data+output_len, (const void*)'\0', 1);
+                memcpy((uint8_t*)evt->user_data+output_len, &string_terminator, 1);
             }
 
             break;
