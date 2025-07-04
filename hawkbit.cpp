@@ -59,19 +59,27 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
                 // If user_data buffer is configured, copy the response into the buffer
                 if (evt->user_data) {
                     if (output_buffer == NULL) {
-                        output_buffer = (char *) malloc(esp_http_client_get_content_length(evt->client));
+                        output_buffer = (char *) calloc(esp_http_client_get_content_length(evt->client)+1,1);
                         output_len = 0;
                         if (output_buffer == NULL) {
                             ESP_LOGE(TAG, "Failed to allocate memory for output buffer");
                             return ESP_FAIL;
                         }
                     }
-                    memcpy(output_buffer + output_len, evt->data, evt->data_len);
+                    if((output_len + evt->data_len +1) <= MAX_HTTP_OUTPUT_BUFFER) {
+                        memcpy(output_buffer + output_len, evt->data, evt->data_len);
+                        char string_terminator = '\0';
+                        output_len += evt->data_len;
+                        memcpy((uint8_t*)evt->user_data, output_buffer, output_len);
+                        memcpy((uint8_t*)evt->user_data+output_len, &string_terminator, 1);
+                    }
+                    else{
+                        free(output_buffer);
+                        output_buffer = NULL;
+                        ESP_LOGE(TAG,"Failed to write data to output buffer. Cleared buffer.");
+                    }
+                    
                 }
-                char string_terminator = '\0';
-                output_len += evt->data_len;
-                memcpy((uint8_t*)evt->user_data, output_buffer, output_len);
-                memcpy((uint8_t*)evt->user_data+output_len, &string_terminator, 1);
             }
 
             break;
