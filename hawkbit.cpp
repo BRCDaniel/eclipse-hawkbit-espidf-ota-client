@@ -209,7 +209,7 @@ State HawkbitClient::readState()
             ESP_LOGD(TAG,"Result - payload: %s", this->resultPayload);
             if ( code == HttpStatus_Ok ) {
                 _doc = json::parse(resultPayload, NULL, false, true);
-                if (_doc.is_null())
+                if ((_doc.is_null()) || (_doc.is_discarded()))
                 {                    
                     ESP_LOGE(TAG, "readState: DeserializationError");
                     esp_http_client_cleanup(_http);
