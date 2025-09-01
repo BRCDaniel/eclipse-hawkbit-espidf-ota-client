@@ -34,8 +34,10 @@
 
 #include "esp_http_client.h"
 
-#define MAX_HTTP_RECV_BUFFER 512
-#define MAX_HTTP_OUTPUT_BUFFER 2048
+#define MAX_HTTP_RECV_BUFFER    512
+#define MAX_HTTP_OUTPUT_BUFFER  2048
+
+#define MIN_POLLING_TIME        60u // Minimum polling time in seconds
 
 class Artifact;
 class Chunk;
@@ -404,7 +406,7 @@ class HawkbitClient {
         std::string _authToken;
 
         //polling time in seconds
-        uint32_t pollingTime = 60;
+        uint32_t pollingTime = MIN_POLLING_TIME;
 
         Deployment readDeployment(const std::string& href);
         Stop readCancel(const std::string& href);
