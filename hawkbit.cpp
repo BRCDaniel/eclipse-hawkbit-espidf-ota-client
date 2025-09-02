@@ -230,6 +230,9 @@ State HawkbitClient::readState()
                     std::istringstream ss(tmp);
                     ss >> std::get_time(&tm, "%H:%M:%S");
                     this->pollingTime = tm.tm_hour*60*60 + tm.tm_min*60 + tm.tm_sec;
+                    if (this->pollingTime < MIN_POLLING_TIME) {
+                        this->pollingTime = MIN_POLLING_TIME; // Force minimum polling time
+                    }
                     ESP_LOGI(TAG, "Received polling time: %s --> sleep %" PRIu32 " seconds", tmp.c_str(), this->pollingTime);
                 }
             }
