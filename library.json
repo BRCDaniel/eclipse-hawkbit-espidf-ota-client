@@ -13,12 +13,9 @@
     "type": "git",
     "url": "https://github.com/c0ffee/eclipse-hawkbit-espidf-ota-client"
   },
-  "dependencies": {
-    "json": {
-      "type": "git",
-      "url": "https://github.com/ErstaBRC/json"
-    }
-  },
+  "dependencies": [
+    "https://github.com/ErstaBRC/json.git"
+  ],
   "version": "0.2.0",
   "frameworks": "espidf"
 }
