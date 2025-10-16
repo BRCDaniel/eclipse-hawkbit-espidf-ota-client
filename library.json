@@ -14,7 +14,7 @@
     "url": "https://github.com/c0ffee/eclipse-hawkbit-espidf-ota-client"
   },
   "dependencies": {
-    "ArduinoJson": "^6.0.0"
+    "ArduinoJson": "^7.4.2"
   },
   "version": "0.2.0",
   "frameworks": "espidf"
