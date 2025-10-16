@@ -393,11 +393,14 @@ std::string HawkbitClient::feedbackUrl(const Stop& stop) const
 template<typename IdProvider>
 UpdateResult HawkbitClient::sendFeedback(IdProvider id, const std::string& execution, const std::string& finished, std::vector<std::string> details)
 {
-    _doc = json::object();
+    _doc.clear();
 
     _doc["id"] = id.id();
     
-    _doc["status"]["details"] = details;
+    JsonArray d = _doc["status"].createNestedArray("details");
+    for (auto detail : details) {
+        d.add(detail);
+    }
 
     _doc["status"]["execution"] = execution;
     _doc["status"]["result"]["finished"] = finished;
