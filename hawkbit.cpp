@@ -24,8 +24,6 @@
 #include "hawkbit.h"
 #include <iomanip>
 #include <sstream>
-#include <json.hpp>
-using json = nlohmann::json;
 
 static const char* TAG = "hawkbit";
 
@@ -122,7 +120,7 @@ void HawkbitClient::init(
     _tenantName = tenantName;
     _controllerId = controllerId;
     _authToken = "TargetToken " + securityToken;
-    _doc = json::object();
+    _doc.clear();
     _http_config.event_handler = _http_event_handler;
     _http_config.url = "http://localhost";
     _http_config.user_data = resultPayload;        // Pass address of local buffer to get response
@@ -143,7 +141,7 @@ esp_http_client_handle_t HawkbitClient::initHttpHandle(esp_http_client_method_t 
 
 UpdateResult HawkbitClient::updateRegistration(const Registration& registration, const std::map<std::string,std::string>& data, MergeMode mergeMode, std::initializer_list<std::string> details)
 {
-    _doc = json::object();
+    _doc.clear();
 
     switch(mergeMode) {
         case MERGE:
@@ -157,18 +155,22 @@ UpdateResult HawkbitClient::updateRegistration(const Registration& registration,
             break;
     }
 
+    _doc.createNestedObject("data");
     for (const std::pair<std::string,std::string> entry : data) {
         _doc["data"][std::string(entry.first)] = entry.second;
     }
 
-    _doc["status"]["details"] = details;
+    JsonArray d = _doc["status"].createNestedArray("details");
+    for (auto detail : details) {
+        d.add(detail);
+    }
 
     _doc["status"]["execution"] = "closed";
     _doc["status"]["result"]["finished"] = "success";
     esp_http_client_handle_t _http = initHttpHandle(HTTP_METHOD_PUT, registration.url());
 
-    std::string buffer = _doc.dump();
-    size_t len = buffer.length();
+    std::string buffer;
+    size_t len = serializeJson(_doc, buffer);
     (void)len; // ignore unused
 
     ESP_LOGI(TAG,"JSON - len: %d", len);
@@ -195,7 +197,7 @@ State HawkbitClient::readState()
 {
     esp_http_client_handle_t _http = initHttpHandle(HTTP_METHOD_GET, (this->_baseUrl + "/" + this->_tenantName + "/controller/v1/" + this->_controllerId));
 
-    _doc = json::object();
+    _doc.clear();
 
     esp_err_t err = esp_http_client_perform(_http);
     if (err == ESP_OK) {
@@ -208,10 +210,9 @@ State HawkbitClient::readState()
 
             ESP_LOGD(TAG,"Result - payload: %s", this->resultPayload);
             if ( code == HttpStatus_Ok ) {
-                _doc = json::parse(resultPayload, NULL, false, true);
-                if ((_doc.is_null()) || (_doc.is_discarded()))
-                {                    
-                    ESP_LOGE(TAG, "readState: DeserializationError");
+                DeserializationError error = deserializeJson(_doc, resultPayload);
+                if (error) {
+                    ESP_LOGE(TAG, "readState: DeserializationError %s", error.c_str());
                     esp_http_client_cleanup(_http);
                     return State();
                 }
@@ -222,46 +223,34 @@ State HawkbitClient::readState()
             }
             esp_http_client_cleanup(_http);
 
-            if (_doc.count("config") && _doc["config"].count("polling") && _doc["config"]["polling"].count("sleep"))
-            {
-                std::string tmp = _doc["config"]["polling"]["sleep"].get<std::string>();
-                if (!tmp.empty()) {
-                    struct std::tm tm;
-                    std::istringstream ss(tmp);
-                    ss >> std::get_time(&tm, "%H:%M:%S");
-                    this->pollingTime = tm.tm_hour*60*60 + tm.tm_min*60 + tm.tm_sec;
-                    if (this->pollingTime < MIN_POLLING_TIME) {
-                        this->pollingTime = MIN_POLLING_TIME; // Force minimum polling time
-                    }
-                    ESP_LOGI(TAG, "Received polling time: %s --> sleep %" PRIu32 " seconds", tmp.c_str(), this->pollingTime);
+            std::string tmp = _doc["config"]["polling"]["sleep"];
+            if (!tmp.empty()) {
+                struct std::tm tm;
+                std::istringstream ss(tmp);
+                ss >> std::get_time(&tm, "%H:%M:%S");
+                this->pollingTime = tm.tm_hour*60*60 + tm.tm_min*60 + tm.tm_sec;
+                if (this->pollingTime < MIN_POLLING_TIME) {
+                    this->pollingTime = MIN_POLLING_TIME; // Force minimum polling time
                 }
+                ESP_LOGI(TAG, "Received polling time: %s --> sleep %d seconds", tmp.c_str(), this->pollingTime);
             }
 
-            if (_doc.count("_links") && _doc["_links"].count("deploymentBase") && _doc["_links"]["deploymentBase"].count("href"))
-            {
-                std::string href = _doc["_links"]["deploymentBase"]["href"].get<std::string>();
-                if (!href.empty()) {
-                    ESP_LOGI(TAG,"Fetching deployment: %s", href.c_str());
-                    return State(this->readDeployment(href));
-                }
+            std::string href = _doc["_links"]["deploymentBase"]["href"] | "";
+            if (!href.empty()) {
+                ESP_LOGI(TAG,"Fetching deployment: %s", href.c_str());
+                return State(this->readDeployment(href));
             }
 
-            if (_doc.count("_links") && _doc["_links"].count("configData") && _doc["_links"]["configData"].count("href"))
-            {
-                std::string href = _doc["_links"]["configData"]["href"].get<std::string>();
-                if (!href.empty()) {
-                    ESP_LOGI(TAG,"Need to register %s", href.c_str());
-                    return State(Registration(href));
-                }
+            href = _doc["_links"]["configData"]["href"] | "";
+            if (!href.empty()) {
+                ESP_LOGI(TAG,"Need to register %s", href.c_str());
+                return State(Registration(href));
             }
 
-            if (_doc.count("_links") && _doc["_links"].count("cancelAction") && _doc["_links"]["cancelAction"].count("href"))
-            {
-                std::string href = _doc["_links"]["cancelAction"]["href"].get<std::string>();
-                if (!href.empty()) {
-                    ESP_LOGI(TAG,"Fetching cancel action: %s", href.c_str());
-                    return State(this->readCancel(href));
-                }
+            href = _doc["_links"]["cancelAction"]["href"] | "";
+            if (!href.empty()) {
+                ESP_LOGI(TAG,"Fetching cancel action: %s", href.c_str());
+                return State(this->readCancel(href));
             }
     } else {
         esp_http_client_cleanup(_http);
@@ -272,69 +261,61 @@ State HawkbitClient::readState()
     return State();
 }
 
-std::map<std::string,std::string> toMap(json& obj) {
+std::map<std::string,std::string> toMap(const JsonObject& obj) {
     std::map<std::string,std::string> result;
 
-    for(auto& p:obj.items())
-    {
-        if (p.value().is_string())
-            result[std::string(p.key())] = std::string(p.value());
-    }
-    return result;
-}
-
-std::map<std::string,std::string> toLinks(json& obj) {
-    std::map<std::string,std::string> result;
-
-    for(auto& p:obj.items())
-    {
-        json arr = p.value();
-
-        if (arr.is_object() && !arr["href"].is_null()) {
-            result[std::string(p.key())] = arr["href"].get<std::string>().c_str();
+    for (const JsonPair& p: obj) {
+        if (p.value().is<const char*>()) {
+            result[std::string(p.key().c_str())] = std::string(p.value().as<const char*>());
         }
     }
+    return result;
+}
+
+std::map<std::string,std::string> toLinks(const JsonObject& obj) {
+    std::map<std::string,std::string> result;
+
+    for (const JsonPair& p: obj) 
+    {
+        const char* key = p.key().c_str();
+        const char* value = p.value()["href"];
+        result[std::string(key)] = std::string(value);
+    }
 
     return result;
 }
 
-std::list<Artifact> artifacts(json& artifacts)
+std::list<Artifact> artifacts(const JsonArray& artifacts)
 {
     std::list<Artifact> result;
 
-    for(auto& o:artifacts)
+    for (JsonObject o : artifacts) 
     {
-        if (o.count("_links") && o.count("size") && o.count("hashes"))
-        {
-            Artifact artifact (
-                o["filename"].get<std::string>(),
-                o["size"].get<uint32_t>() | 0,
-                toMap(o["hashes"]),
-                toLinks(o["_links"])
-            );
-            result.push_back(artifact);
-        }
+        Artifact artifact (
+            o["filename"],
+            o["size"] | 0,
+            toMap(o["hashes"]),
+            toLinks(o["_links"])
+        );
+        result.push_back(artifact);
     }
 
     return result;
 }
 
-std::list<Chunk> chunks(json& chunks)
+std::list<Chunk> chunks(const JsonArray& chunks)
 {
     std::list<Chunk> result;
 
-    for(auto& o:chunks)
+    for(JsonObject o : chunks)
     {
-        if (o.count("part") && o.count("version") && o.count("name") && o.count("artifacts"))
-        {
-            Chunk chunk(
-                o["part"].get<std::string>(),
-                o["version"].get<std::string>(),
-                o["name"].get<std::string>(),
-                artifacts(o["artifacts"])
-                );
-            result.push_back(chunk);
-        }
+        Chunk chunk(
+            o["part"],
+            o["version"],
+            o["name"],
+            artifacts(o["artifacts"])
+            );
+        result.push_back(chunk);
     }
 
     return result;
@@ -344,7 +325,7 @@ Deployment HawkbitClient::readDeployment(const std::string& href)
 {
     esp_http_client_handle_t _http = initHttpHandle(HTTP_METHOD_GET, href);
     
-    _doc = json::object();
+    _doc.clear();
 
     esp_err_t err = esp_http_client_perform(_http);
     if (err == ESP_OK) {
@@ -355,35 +336,25 @@ Deployment HawkbitClient::readDeployment(const std::string& href)
             ESP_LOGD(TAG,"Result - code: %d", code);
             ESP_LOGD(TAG,"Result - payload: %s", this->resultPayload);
             if ( code == HttpStatus_Ok ) {
-                _doc = json::parse(resultPayload, NULL, false, true);
+                deserializeJson(_doc, resultPayload);
             }
     } else {
         ESP_LOGE(TAG, "readDeployment HTTP request failed: %s", esp_err_to_name(err));
     }
 
     esp_http_client_cleanup(_http);
-    std::string id = "";
-    std::string download = "";
-    std::string update = "";
-    json j_chunks = json::object(); 
+    std::string id = _doc["id"];
+    std::string download = _doc["deployment"]["download"];
+    std::string update = _doc["deployment"]["update"];
 
-    if (_doc.count("id") && _doc.count("deployment") && 
-        _doc["deployment"].count("download") && _doc["deployment"].count("update") && _doc["deployment"].count("chunks"))
-    {
-        id = _doc["id"].get<std::string>();
-        download = _doc["deployment"]["download"].get<std::string>();
-        update = _doc["deployment"]["update"].get<std::string>();
-        j_chunks = _doc["deployment"]["chunks"];
-    }
-
-    return Deployment(id, download, update, chunks(j_chunks));
+    return Deployment(id, download, update, chunks(_doc["deployment"]["chunks"]));
 }
 
 Stop HawkbitClient::readCancel(const std::string& href)
 {
     esp_http_client_handle_t _http = initHttpHandle(HTTP_METHOD_GET, href);
 
-    _doc = json::object();
+    _doc.clear();
 
     esp_err_t err = esp_http_client_perform(_http);
     if (err == ESP_OK) {
@@ -396,7 +367,7 @@ Stop HawkbitClient::readCancel(const std::string& href)
         ESP_LOGD(TAG,"Result - payload: %s", this->resultPayload);
 
         if ( code == HttpStatus_Ok ) {
-            _doc = json::parse(resultPayload, NULL, false, true);
+            deserializeJson(_doc, resultPayload);
         }
     } else {
         ESP_LOGE(TAG, "readCancel HTTP request failed: %s", esp_err_to_name(err));
@@ -404,9 +375,7 @@ Stop HawkbitClient::readCancel(const std::string& href)
 
     esp_http_client_cleanup(_http);
 
-    std::string stopId = "";
-    if (_doc.count("cancelAction") && _doc["cancelAction"].count("stopId"))
-        stopId = _doc["cancelAction"]["stopId"].get<std::string>();
+    std::string stopId = _doc["cancelAction"]["stopId"] | "";
     
     return Stop(stopId);
 }
@@ -434,8 +403,8 @@ UpdateResult HawkbitClient::sendFeedback(IdProvider id, const std::string& execu
     _doc["status"]["result"]["finished"] = finished;
     esp_http_client_handle_t _http = initHttpHandle(HTTP_METHOD_POST, this->feedbackUrl(id));
 
-    std::string buffer = _doc.dump();
-    size_t len = buffer.length();
+    std::string buffer = "";
+    size_t len = serializeJson(_doc, buffer);
     (void)len; // ignore unused
 
     ESP_LOGD(TAG,"JSON - len: %d", len);

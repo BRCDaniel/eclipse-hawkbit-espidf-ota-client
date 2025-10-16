@@ -28,7 +28,7 @@
 #include <string>
 #include <map>
 #include <list>
-#include <json.hpp>
+#include <ArduinoJson.h>
 #include "esp_log.h"
 #include "esp_tls.h"
 
@@ -395,7 +395,7 @@ class HawkbitClient {
         uint32_t getPollingTime() { return this->pollingTime; }
 
     private:
-        nlohmann::json _doc;
+        JsonDocument& _doc;
     
         char resultPayload[MAX_HTTP_OUTPUT_BUFFER] = {};
         esp_http_client_config_t _http_config = {};
